@@ -371,8 +371,16 @@ class GameNotifier extends Notifier<GameSessionState> {
 
   /// 現在の半イニングが3アウトに達していれば攻守交代する。
   ///
+  /// [advanceBatter] が true の場合、交代前にそのチームの打者インデックスを
+  /// 次の打者へ進めてから交代する（＝今の打席で打者の出番が完了した場合）。
+  /// 走塁死などで打者の打席が完了しないまま3アウト目になった場合は false を
+  /// 渡し、次の攻撃を同じ打者から再開できるようにする。
+  ///
   /// 戻り値は攻守交代後の状態と、交代したかどうかのペア。
-  (GameSessionState, bool) _changeInningIfCompleted(GameSessionState s) {
+  (GameSessionState, bool) _changeInningIfCompleted(
+    GameSessionState s, {
+    bool advanceBatter = false,
+  }) {
     final events = s.replay.eventsInHalfInning(
       s.inning,
       s.isTop,
@@ -381,17 +389,24 @@ class GameNotifier extends Notifier<GameSessionState> {
     if (events.isEmpty || events.last.outsAfter < 3) {
       return (s, false);
     }
-    return (_recomputeReplay(_changeInning(s)), true);
+    final ready = advanceBatter ? _advanceCurrentBatter(s) : s;
+    return (_recomputeReplay(_changeInning(ready)), true);
   }
 
-  GameSessionState _nextBatter(GameSessionState s) {
+  // 打者インデックスだけを次の打者へ進める（巡目の繰り上げ込み）。
+  // 攻守交代の判定は行わない。
+  GameSessionState _advanceCurrentBatter(GameSessionState s) {
     int nextIdx = s.currentBatterIndex + 1;
     var next = s;
     if (nextIdx >= s.currentBatters.length) {
       nextIdx = 0;
       next = _withCurrentCycle(next, next.currentCycle + 1);
     }
-    next = _withCurrentBatterIndex(next, nextIdx);
+    return _withCurrentBatterIndex(next, nextIdx);
+  }
+
+  GameSessionState _nextBatter(GameSessionState s) {
+    var next = _advanceCurrentBatter(s);
 
     if (next.outs >= 3) {
       next = _recomputeReplay(_changeInning(next));
@@ -444,7 +459,10 @@ class GameNotifier extends Notifier<GameSessionState> {
     }
     next = _recomputeReplay(next);
 
-    final (afterChange, changed) = _changeInningIfCompleted(next);
+    final (afterChange, changed) = _changeInningIfCompleted(
+      next,
+      advanceBatter: !event.isBaserunningEvent,
+    );
     _commitLocalAndSync(
       (!changed && !event.isBaserunningEvent)
           ? _nextBatter(afterChange)
@@ -692,7 +710,10 @@ class GameNotifier extends Notifier<GameSessionState> {
     );
     next = _recomputeReplay(next);
 
-    final (afterChange, changed) = _changeInningIfCompleted(next);
+    final (afterChange, changed) = _changeInningIfCompleted(
+      next,
+      advanceBatter: !isUpdate,
+    );
     _commitLocalAndSync(
       (!changed && !isUpdate) ? _nextBatter(afterChange) : afterChange,
     );

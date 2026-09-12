@@ -54,5 +54,42 @@ void main() {
       expect(events, hasLength(3));
       expect(events.first.result, AtBatResult.singleHit);
     });
+
+    test('次に表の攻撃が回ってきたとき、3アウト目を取られた打者ではなく次の打者から再開する', () {
+      // 裏の攻撃も3三振で終わらせ、表の攻撃に戻す。
+      for (var i = 0; i < 3; i++) {
+        notifier.recordOrUpdateAtBat(AtBatResult.strikeout, direction: '');
+      }
+
+      final s = container.read(gameProvider);
+      expect(s.isTop, isTrue);
+      expect(s.inning, 2);
+      // 表は0,1,2番が打って3アウトになったので、次は3番（インデックス3）から。
+      expect(s.currentBatterIndex, 3);
+    });
+  });
+
+  group('GameNotifier — 走塁死で3アウト目になった場合の打者継続', () {
+    late ProviderContainer container;
+    late GameNotifier notifier;
+
+    setUp(() {
+      container = ProviderContainer();
+      addTearDown(container.dispose);
+      notifier = container.read(gameProvider.notifier);
+    });
+
+    test('打席が完了しないまま走塁死で3アウト目になったら、同じ打者から再開する', () {
+      // 2アウトまで凡退で進める（打者0,1番）。
+      notifier.recordOrUpdateAtBat(AtBatResult.groundOut, direction: '6');
+      notifier.recordOrUpdateAtBat(AtBatResult.groundOut, direction: '6');
+      // 打者2番の打席中に走塁死で3アウト目が成立（打席は完了しない）。
+      notifier.recordBaserunningEvent('盗塁失敗', BaseRunners.empty, outsAdded: 1);
+
+      final s = container.read(gameProvider);
+      expect(s.isTop, isFalse);
+      // 表の打者インデックスは進めず、打席が完了しなかった2番のまま。
+      expect(s.batterIndexTop, 2);
+    });
   });
 }
