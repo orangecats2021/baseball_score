@@ -95,7 +95,30 @@ test/widget_test.dart … 画面の回帰テスト（GameSyncService はフェ�
   なしにどの試合も編集できる（`admins/{uid}` の有無を `firestore.rules` の
   `isEditor()` がOR条件で見る）。マスターキーのハッシュ（`config/adminKey`）
   はアプリからは書き込めず、Firebaseコンソールから手動で1回だけ登録する
-  運用（セットアップ手順は [TODO.md](TODO.md) 参照）。
+  運用（セットアップ手順は次項参照）。
+
+### 管理者キーのセットアップ手順（初回のみ・手動）
+
+アプリからは `config/adminKey` ドキュメントを書き込めない設計にしている
+（「最初にアクセスした人が管理者キーを乗っ取れてしまう」ことを防ぐため）。
+そのため、以下の手順で運営者が手動で1回だけ登録する。
+
+1. 管理者キーにしたい文字列を決める。
+2. `lib/utils/edit_key_hash.dart` の `hashEditKey()` と同じ
+   SHA-256で、そのキーのハッシュ値（16進数64文字）を計算する
+   （例: `dart run` で `print(hashEditKey('決めたキー'));` を実行するだけの
+   一時スクリプトを書いて実行し、値を確認したら削除する）。
+3. Firebaseコンソール → Firestore Database → `config` コレクション →
+   ドキュメントID `adminKey` を作成し、フィールド `adminKeyHash`
+   （文字列）に2.のハッシュ値を設定する。
+4. `firestore.rules` の変更（`isAdmin()` 関数・`config/adminKey` /
+   `admins/{uid}` のルール追加）を
+   `firebase deploy --only firestore:rules` でデプロイする
+   （このコマンドは各自の環境から実行すること。CIには含めていない）。
+5. 管理者キーをローテーションしたい場合は、3.の `adminKeyHash` を
+   Firebaseコンソールから書き換える（ルールで `update` を禁止しているため、
+   一度削除してから作り直す）。既存の `admins/{uid}` は無効化されないため、
+   権限を剥奪したい相手がいる場合は該当ドキュメントも合わせて削除する。
 
 ## 作業前後に必ず実行
 
@@ -105,3 +128,10 @@ flutter test                  # 全件成功を維持すること
 ```
 
 残作業は [TODO.md](TODO.md) を参照。
+
+## リリースノートの管理
+
+- ユーザーに見える機能追加・修正をmainに取り込んだら、[README.md](README.md)
+  の「更新履歴」に1〜数行で追記する（新しいものを上に）。
+- [TODO.md](TODO.md) は残作業のみを保つ。対応が完了した項目は残さず削除し、
+  内容が必要ならREADME.mdの更新履歴側に反映する。

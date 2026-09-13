@@ -1,17 +1,52 @@
-# baseball_score
+# baseball_score（草野球向けスコアブック共有Webアプリ）
 
-A new Flutter project.
+草野球など任意のチームの試合をブラウザからスコア入力し、複数人でリアルタイムに
+共有・共同編集できるFlutter Web製アプリ。打席結果を記録するだけで、
+進塁・得点・個人成績（打率／防御率／OPSなど）を自動集計する。
 
-## Getting Started
+- 公開URL: https://dorafan57.github.io/baseball_score/
+- 開発ルール・内部設計: [CLAUDE.md](CLAUDE.md)
+- 未着手の残作業・要望: [TODO.md](TODO.md)
 
-This project is a starting point for a Flutter application.
+## 主な機能
 
-A few resources to get you started if this is your first Flutter project:
+- 打席結果（安打・アウト・四死球・盗塁など）を入力するだけで、
+  進塁判定・得点・ラインスコア・個人成績を自動計算（イベントソーシング方式）。
+- Firestoreによる複数人同時編集。編集キー付きURLを共有すれば、
+  誰でも同じ試合をリアルタイムに一緒にスコア入力できる（閲覧のみのURLも可）。
+- ボックススコア表示、PDF／Excelへのエクスポート。
+- 管理者モード（全試合共通のマスターキーで、編集キーなしにどの試合も編集可能）。
+- ライト／ダークテーマ切替、スマホからデスクトップ幅までのレスポンシブ対応。
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 開発
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```
+flutter run -d chrome --dart-define-from-file=dart_define.local.json
+flutter analyze --no-pub
+flutter test
+```
+
+詳細は [CLAUDE.md](CLAUDE.md) を参照。
+
+## 更新履歴
+
+新しい変更ほど上に記載する。バージョン表記（例: `2026.09.13-3`）は
+設定ダイアログに表示される自動生成値（`年.月.日-その日の何回目のデプロイか`）。
+過去分は日次の区別がつかないため、機能単位で記載している。
+
+- 試合の開催日を入力・編集できるように。
+  攻守交代時に打者インデックスが進まないバグを修正。
+- 成績拡充・ボックススコア・PDF/Excelエクスポート・管理者モードを追加。
+  出塁率・長打率・OPS・得点圏打率を追加し、ボックススコア画面と
+  PDF/Excel出力を実装。全試合共通のマスターキーで編集できる管理者モードを追加。
+- 複数人同時編集（Firebase）を追加。Firestore＋匿名認証で試合データを共有し、
+  編集キーによる編集者／閲覧者の区別、`docVersion`による楽観的排他制御、
+  試合一覧の並べ替え・共有URLを実装。
+- 実機確認でのフィードバックに対応し、GitHub Pagesへの自動デプロイを追加。
+  回替わり時の打者継続バグ修正、併殺時の走者進塁先選択UI、
+  タイムプレイ時の得点無効化ルール、配色整理、ライト／ダークテーマ手動切替、
+  デスクトップ幅拡張（〜900px）、設定画面のバージョン表示、
+  redo（1手進める）機能、`.github/workflows/deploy.yml` によるGitHub Pages
+  自動デプロイを実装。
+- 初期実装。集計ロジックの抽出とテスト整備、Riverpodによる状態管理への移行、
+  永続化、UI分割とレスポンシブ対応を実施。
